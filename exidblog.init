@@ -1,0 +1,41 @@
+#!/bin/sh
+
+NAME=exidblog
+DAEMON=/usr/local/exidblog/mainlog2db.php
+PID_FILE=/var/run/exidblog.pid
+EXIDBLOG_CONF=/etc/exidblog.conf
+
+if [ -f /etc/default/exidblog ]; then
+  . /etc/default/exidblog
+fi
+
+export EXIDBLOG_CONF
+
+test -x $DAEMON || exit 0
+
+case "$1" in
+  start)
+    echo -n "Starting Exim Database Logging: $NAME"
+    start-stop-daemon -S -b -p $PID_FILE -x $DAEMON -m
+    echo "."
+    ;;
+  stop)
+    echo -n "Stopping Exim Database Logging: $NAME"
+    if [ -f $PID_FILE ]; then
+      kill `cat $PID_FILE`
+      rm $PID_FILE
+    fi
+    echo "."
+    ;;
+  restart)
+    $0 stop
+    $0 start
+    ;;
+  force-reload)
+    $0 restart
+    ;;
+  *)
+    echo "Usage: $0 start|stop|restart|force-reload"
+    exit 1
+    ;;
+esac

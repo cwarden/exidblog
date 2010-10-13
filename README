@@ -1,0 +1,70 @@
+exidblog is a PHP program which parses an Exim 4 log file (mainlog) and stores
+the data in each line in a MySQL database.  It is useful in centralizing
+logging from a number of MTA's.  
+
+exidblog is composed of a PHP class, EximDatabaseLogger which does all of the
+work, and two simple scripts, mainlog2db.php and stdin2db.php, which just
+initialize an instance of the parser and pass log file data to it.  Much of the
+parsing code is based on eximstats.
+
+stdin2db.php reads from stdin until end of file and is useful for loading in
+old log files.  
+
+mainlog2db.php reads continuously from a log file using a `tail --follow`
+process and is meant to be started at boot and run constantly.
+
+Database credentials and the path to the mainlog file, used by both
+stdin2db.php and mainlog2db.php, are stored in /etc/exidblog.conf.  The path to
+config file can be overridden by setting the environment variable
+EXIDBLOG_CONF.
+
+This package includes a Debian init script to start mainlog2db.php.
+
+Before using exidblog, two database tables must be created using the included
+exidblog.sql file, and a MySQL user must be given access to the log table.
+Additionally, a record containing the fully-qualified hostname for each host
+that will be logging to the database must be inserted into the mta table.
+
+A number of changes must be made to the Exim config file in order for exidblog
+to properly capture all relevant data.
+
+log_selector must contain at least the following selectors:
++subject
++received_recipients
++received_sender
++sender_on_delivery 
++smtp_confirmation
+
+In order to log rejected spam and malware, exiscan-acl must be used.   
+The intended recipients for messages rejected by exiscan-acl must be stored in
+an acl message variable ($acl_m9 in this documentation).  The log_message must
+reference this variable.  (A future version of exidblog will use $recipients).
+To set the $acl_m9 variable, add the following line below any accept statements in your RCPT acl:
+	set acl_m9 = ${if def:acl_m9{$acl_m9:$local_part@$domain}{$local_part@$domain}}
+
+For example:
+  accept domains = +local_domains
+    endpass
+    message = unknown user
+    verify = recipient
+    set acl_m9 = ${if def:acl_m9{$acl_m9:$local_part@$domain}{$local_part@$domain}}
+
+
+Here are the log_message settings for messages rejected during the DATA acl by exiscan-acl.
+Spam:
+log_message = SPAM ($spam_score) RCPT=$acl_m9 SUB=${quote:$h_subject:} MSGID=$h_message-id:
+
+Malware:
+log_message = MALWARE ($malware_name) RCPT=$acl_m9 SUB=${quote:$h_subject:} MSGID=$h_message-id:
+
+MIME Error (rejected based on exiscan-acl's demime_errorlevel):
+log_message = MIME_ERROR ($demime_reason) RCPT=$acl_m9 SUB=${quote:$h_subject:} MSGID=$h_message-id:
+
+Disallowed attachments:
+log_message = BAD_ATTACHMENT (.$found_extension) RCPT=$acl_m9 SUB=${quote:$h_subject:} MSGID=$h_message-id:
+
+-------------------------------------------------------------------------------
+Email me with any questions/comments.
+
+Christian G. Warden
+cwarden@postica.com
