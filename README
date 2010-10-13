@@ -67,4 +67,4 @@ log_message = BAD_ATTACHMENT (.$found_extension) RCPT=$acl_m9 SUB=${quote:$h_sub
 Email me with any questions/comments.
 
 Christian G. Warden
-cwarden@postica.com
+cwarden@xerus.org
